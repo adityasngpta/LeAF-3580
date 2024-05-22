@@ -1,11 +1,12 @@
 import streamlit as st
 import torch
-import torchvision
+from torchvision import models
 from PIL import Image
 from torchvision import transforms
 import csv
 import gdown
 import os
+import zipfile
 
 # Define the device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -13,71 +14,50 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Define the number of classes
 num_classes = 3580
 
-# Load the pre-trained ResNet-18 model and modify the final layer
-model = torchvision.models.resnet18(pretrained=False)
-model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
-
-# Function to download the model from Google Drive
+# Download the ZIP archive containing the model file from Google Drive
 def download_model_from_drive():
-    if not os.path.exists('model.pth'):
+    model_zip_path = 'model.zip'
+    if not os.path.exists(model_zip_path):
         st.write("Downloading model...")
-        gdown.download('https://drive.google.com/file/d/19b40vxjQ3fXEIA65kNtPuvuzqdWjznVB/view?usp=share_link', 'model.pth', quiet=False)
+        gdown.download('https://drive.google.com/file/d/15VF_6pbTfWhMX8COB5REns1csJ25D3Ff/view?usp=share_link', model_zip_path, quiet=False)
         st.write("Model downloaded successfully!")
+    return model_zip_path
 
-# Call the function to download the model
-download_model_from_drive()
+# Extract the model from the ZIP archive
+def extract_model(model_zip_path):
+    with zipfile.ZipFile(model_zip_path, 'r') as zip_ref:
+        zip_ref.extractall('.')
+    return 'model.pth'
 
-# Load the saved model checkpoint
-checkpoint_path = 'model.pth'
-checkpoint = torch.load(checkpoint_path, map_location=device)  # Use map_location to load on CPU
-
-# Remove 'module.' prefix from the keys if the checkpoint was saved from a DataParallel model
-state_dict = checkpoint['model_state_dict']
-new_state_dict = {}
-for k, v in state_dict.items():
-    if k.startswith('module.'):
-        k = k[7:]  # remove 'module.' prefix
-    new_state_dict[k] = v
-
-model.load_state_dict(new_state_dict)
-model = model.to(device)
-model.eval()
-
-# Define the data transformation for inference
-transform_inference = transforms.Compose([
-    transforms.Resize(224),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-])
+# Load the pre-trained ResNet-18 model and modify the final layer
+def load_model(model_path):
+    model = models.resnet18(pretrained=False)
+    model.fc = torch.nn.Linear(model.fc.in_features, num_classes)
+    checkpoint = torch.load(model_path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    return model
 
 # Function to load and preprocess an image
 def load_image(image):
     image = Image.open(image)
-    image = transform_inference(image).unsqueeze(0)
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    image = transform(image).unsqueeze(0)
     return image.to(device)
 
-# Load the class names from a CSV file
-def load_class_names(csv_path):
-    class_names = {}
-    with open(csv_path, mode='r') as infile:
-        reader = csv.reader(infile)
-        next(reader)  # Skip the header row
-        for rows in reader:
-            class_names[int(rows[0])] = rows[1]
-    return class_names
-
 # Function to run inference on a single image and get the class name
-def run_inference(image, class_names):
+def run_inference(image, model, class_names):
+    model.eval()
     image = load_image(image)
     with torch.no_grad():
         outputs = model(image)
         _, predicted = torch.max(outputs, 1)
     class_id = predicted.item()
     return class_names[class_id]
-
-# Load the class names CSV file
-class_names_csv_path = 'leaf-3580-pest-classes.csv'
-class_names = load_class_names(class_names_csv_path)
 
 # Streamlit app
 st.title('LeAF 3580 Pest Classification')
@@ -90,5 +70,18 @@ if uploaded_file is not None:
     st.write("")
     st.write("Classifying...")
 
-    predicted_class_name = run_inference(uploaded_file, class_names)
+    model_zip_path = download_model_from_drive()
+    model_path = extract_model(model_zip_path)
+    model = load_model(model_path)
+
+    # Load the class names from a CSV file
+    class_names_csv_path = 'leaf-3580-pest-classes.csv'
+    class_names = {}
+    with open(class_names_csv_path, mode='r') as infile:
+        reader = csv.reader(infile)
+        next(reader)  # Skip the header row
+        for rows in reader:
+            class_names[int(rows[0])] = rows[1]
+
+    predicted_class_name = run_inference(uploaded_file, model, class_names)
     st.write(f'Predicted class for the image is: {predicted_class_name}')
