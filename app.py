@@ -19,15 +19,18 @@ def download_model_from_drive():
     model_zip_path = 'model.zip'
     if not os.path.exists(model_zip_path):
         st.write("Downloading model...")
-        gdown.download('https://drive.google.com/file/d/15VF_6pbTfWhMX8COB5REns1csJ25D3Ff/view?usp=share_link', model_zip_path, quiet=False)
+        gdown.download('https://drive.google.com/uc?id=15VF_6pbTfWhMX8COB5REns1csJ25D3Ff', model_zip_path, quiet=False)
         st.write("Model downloaded successfully!")
     return model_zip_path
 
 # Extract the model from the ZIP archive
 def extract_model(model_zip_path):
-    with zipfile.ZipFile(model_zip_path, 'r') as zip_ref:
-        zip_ref.extractall('.')
-    return 'model.pth'
+    if os.path.isfile(model_zip_path) and model_zip_path.endswith('.zip'):
+        with zipfile.ZipFile(model_zip_path, 'r') as zip_ref:
+            zip_ref.extractall('.')
+        return 'model.pth'
+    else:
+        st.error("The downloaded file is not a valid ZIP archive.")
 
 # Load the pre-trained ResNet-18 model and modify the final layer
 def load_model(model_path):
