@@ -4,9 +4,8 @@ from torchvision import models
 from PIL import Image
 from torchvision import transforms
 import csv
-import gdown
 import os
-import zipfile
+import wget
 
 # Define the device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -14,23 +13,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Define the number of classes
 num_classes = 3580
 
-# Download the ZIP archive containing the model file from Google Drive
-def download_model_from_drive():
-    model_zip_path = 'model.zip'
-    if not os.path.exists(model_zip_path):
+# Download the model file from Dropbox
+def download_model_from_dropbox():
+    model_path = 'Aditya_Sengupta_ResNet18_LeAF_3580_20240522_114850.pth'
+    if not os.path.exists(model_path):
         st.write("Downloading model...")
-        gdown.download('https://drive.google.com/uc?id=15VF_6pbTfWhMX8COB5REns1csJ25D3Ff', model_zip_path, quiet=False)
+        url = 'https://www.dropbox.com/scl/fi/g5ugkvcpmjcjt0blfitjn/Aditya_Sengupta_ResNet18_LeAF_3580_20240522_114850.pth'
+        wget.download(url, model_path)
         st.write("Model downloaded successfully!")
-    return model_zip_path
-
-# Extract the model from the ZIP archive
-def extract_model(model_zip_path):
-    if os.path.isfile(model_zip_path) and model_zip_path.endswith('.zip'):
-        with zipfile.ZipFile(model_zip_path, 'r') as zip_ref:
-            zip_ref.extractall('.')
-        return 'model.pth'
-    else:
-        st.error("The downloaded file is not a valid ZIP archive.")
+    return model_path
 
 # Load the pre-trained ResNet-18 model and modify the final layer
 def load_model(model_path):
@@ -65,11 +56,6 @@ def run_inference(image, model, class_names):
 # Streamlit app
 st.title('LeAF 3580 Pest Classification')
 
-# Download and extract the model
-model_zip_path = download_model_from_drive()
-model_path = extract_model(model_zip_path)
-model = load_model(model_path)
-
 uploaded_file = st.file_uploader("Choose an image...", type="jpg")
 
 if uploaded_file is not None:
@@ -77,6 +63,9 @@ if uploaded_file is not None:
     st.image(image, caption='Uploaded Image.', use_column_width=True)
     st.write("")
     st.write("Classifying...")
+
+    model_path = download_model_from_dropbox()
+    model = load_model(model_path)
 
     # Load the class names from a CSV file
     class_names_csv_path = 'leaf-3580-pest-classes.csv'
