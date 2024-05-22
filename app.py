@@ -18,7 +18,7 @@ def download_model_from_dropbox():
     model_path = 'Aditya_Sengupta_ResNet18_LeAF_3580_20240522_114850.pth'
     if not os.path.exists(model_path):
         st.write("Downloading model...")
-        url = 'https://www.dropbox.com/scl/fi/g5ugkvcpmjcjt0blfitjn/Aditya_Sengupta_ResNet18_LeAF_3580_20240522_114850.pth'
+        url = 'https://www.dropbox.com/scl/fi/g5ugkvcpmjcjt0blfitjn/Aditya_Sengupta_ResNet18_LeAF_3580_20240522_114850.pth?rlkey=iuztmenkcc59fh9724jpxjqzn&st=bz04akr1&dl=0'
         wget.download(url, model_path)
         st.write("Model downloaded successfully!")
     return model_path
@@ -53,6 +53,10 @@ def run_inference(image, model, class_names):
     class_id = predicted.item()
     return class_names[class_id]
 
+# Download the model immediately when the app starts
+model_path = download_model_from_dropbox()
+model = load_model(model_path)
+
 # Streamlit app
 st.title('LeAF 3580 Pest Classification')
 
@@ -63,9 +67,6 @@ if uploaded_file is not None:
     st.image(image, caption='Uploaded Image.', use_column_width=True)
     st.write("")
     st.write("Classifying...")
-
-    model_path = download_model_from_dropbox()
-    model = load_model(model_path)
 
     # Load the class names from a CSV file
     class_names_csv_path = 'leaf-3580-pest-classes.csv'
