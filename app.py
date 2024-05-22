@@ -65,6 +65,11 @@ def run_inference(image, model, class_names):
 # Streamlit app
 st.title('LeAF 3580 Pest Classification')
 
+# Download and extract the model
+model_zip_path = download_model_from_drive()
+model_path = extract_model(model_zip_path)
+model = load_model(model_path)
+
 uploaded_file = st.file_uploader("Choose an image...", type="jpg")
 
 if uploaded_file is not None:
@@ -72,10 +77,6 @@ if uploaded_file is not None:
     st.image(image, caption='Uploaded Image.', use_column_width=True)
     st.write("")
     st.write("Classifying...")
-
-    model_zip_path = download_model_from_drive()
-    model_path = extract_model(model_zip_path)
-    model = load_model(model_path)
 
     # Load the class names from a CSV file
     class_names_csv_path = 'leaf-3580-pest-classes.csv'
